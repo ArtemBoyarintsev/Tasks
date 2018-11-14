@@ -12,44 +12,50 @@ int find_begin_on_diag(const __global float* first,
         return 0;
 
     int secondIndex = max(0, startDiagIndex - count);
-    int firstIndex = startDiagIndex - 1 - secondIndex;
+    int firstIndex = startDiagIndex - secondIndex;
 
-    int minIndex = secondIndex;
-    int maxIndex = firstIndex;
-
-    while (firstIndex - secondIndex > 2)
+    while (firstIndex - secondIndex > 0)
     {
         int middleIndex = secondIndex + (firstIndex - secondIndex) / 2;
-        if (first[middleIndex] >= second[startDiagIndex - 1 - middleIndex])
+        if (first[middleIndex] > second[startDiagIndex - 1 - middleIndex])
         {
-            firstIndex = middleIndex + 1;
+            firstIndex = middleIndex;
         }
         else
         {
-            secondIndex = middleIndex;
+            secondIndex = middleIndex + 1;
         }
     }
-    secondIndex = startDiagIndex - 1 - firstIndex;
-    if (first[firstIndex] >= second[secondIndex])
+
+    return secondIndex;
+}
+
+
+__kernel void simple_sort(__global float *a)
+{
+    __local float aLocalCopy[128]; //work_group_size is 128
+    const unsigned local_id = get_local_id(0);
+    const unsigned global_id = get_global_id(0);
+    aLocalCopy[local_id] = a[global_id];
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (local_id == 0)
     {
-        while (firstIndex >=minIndex && secondIndex <= maxIndex && first[firstIndex] >= second[secondIndex])
+        for (int i = 0; i < 128; ++i)
         {
-            firstIndex--;
-            secondIndex++;
+            for (int j = i + 1; j < 128; ++j)
+            {
+                if (aLocalCopy[i] > aLocalCopy[j])
+                {
+                    float k = aLocalCopy[i];
+                    aLocalCopy[i] = aLocalCopy[j];
+                    aLocalCopy[j] = k;
+                }
+            }
         }
-        return firstIndex + 1;
     }
-    else
-    {
-        while (firstIndex <= maxIndex && secondIndex >= minIndex && first[firstIndex] < second[secondIndex])
-        {
-            firstIndex++;
-            secondIndex--;
-        }
-        return firstIndex;
-    }
-    //printf("%f %f %f %f\n", first[firstIndex], second[secondIndex], first[firstIndex+1], second[secondIndex-1]);
-    return firstIndex + 1;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    a[global_id] = aLocalCopy[local_id];
 }
 
 

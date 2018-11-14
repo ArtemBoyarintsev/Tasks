@@ -7,6 +7,7 @@
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt:18
 #include "cl/merge_cl.h"
 
+
 #include <vector>
 #include <iostream>
 #include <stdexcept>
@@ -33,26 +34,25 @@ int main(int argc, char **argv)
     context.activate();
 
     int benchmarkingIters = 10;
-    unsigned int n = 1024 * 1024 * 32;
+    unsigned int n = 1024*1024*32;
     std::vector<float> as(n, 0);
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
         as[i] = r.nextf();
     }
     std::cout << "Data generated for n=" << n << "!" << std::endl;
-    for (int i = 0; i < n / 128 + (n % 128 != 0); ++i)
+   /* for (int i = 0; i < n / 128 + (n % 128 != 0); ++i)
     {
         int length = (i == (n / 128) + 1) ? n % 128 : 128;
         std::qsort(as.data() + 128 * i, length , sizeof(int), [](const void* a, const void* b)
         {
             float arg1 = *static_cast<const float*>(a);
             float arg2 = *static_cast<const float*>(b);
-
             if(arg1 < arg2) return -1;
             if(arg1 > arg2) return 1;
             return 0;
         });
-    }
+    }*/
     std::vector<float> cpu_sorted;
     {
         timer t;
@@ -70,24 +70,21 @@ int main(int argc, char **argv)
     res_gpu.resizeN(n);
     {
         ocl::Kernel merge(merge_kernel, merge_kernel_length, "merge");
+        ocl::Kernel simple_sort(merge_kernel, merge_kernel_length, "simple_sort");
         merge.compile();
+        simple_sort.compile();
 
         timer t;
+        unsigned int workGroupSize = 128;
+
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
 
             t.restart(); // Запускаем секундомер после прогрузки данных чтобы замерять время работы кернела, а не трансфер данных
 
-            unsigned int workGroupSize = 128;
+            simple_sort.exec(gpu::WorkSize(workGroupSize, n), as_gpu);
             for (unsigned count = 128; count < n; count *= 2)
             {
-                /*for (int i =0; i < n; ++i)
-                {
-                    if (as[i] > as[i+1])
-                    {
-                        std::cout << count << ' '<< i << std::endl;
-                    }
-                }*/
                 int groupCount = n / (2 * count);
                 merge.exec(gpu::WorkSize(workGroupSize, groupCount * workGroupSize), as_gpu, res_gpu, n, count);
                 res_gpu.readN(as.data(), n);
