@@ -95,13 +95,5 @@ __kernel void merge(__global const float* a,
             res[offset + resIndex++] = first[firstIndex++];
         else
             res[offset + resIndex++] = second[secondIndex++];
-
-        if (offset+resIndex == 509)
-        {
-            /*printf("%f\n", res[508]);
-            printf("%f %f\n", first[firstIndex], first[firstIndex - 1]);
-            printf("%f %f\n", second[secondIndex], second[secondIndex - 1]);
-            printf("%d %d\n", firstIndex, secondIndex);*/
-        }
     }
 }
